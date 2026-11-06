@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academy Expense Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Inter Font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .fade-in {
+            animation: fadeIn 0.25s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-backdrop {
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-full flex flex-col transition-colors duration-200">
+
+   <!-- ... existing code ... -->
+    <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700/80 transition-colors">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer select-none" onclick="navigateToHome()">
+                <div class="bg-gradient-to-tr from-brand-600 to-sky-500 text-white p-2.5 rounded-2xl shadow-md shadow-brand-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-graduation-cap text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-none">Academy Tracker</h1>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Simple Ledger & Reimbursements</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-1">
+                <!-- Theme Toggle Button -->
+                <button id="themeToggleBtn" onclick="toggleDarkMode()" title="Toggle Theme" class="p-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-all active:scale-90">
+                    <i id="themeIcon" class="fa-solid fa-moon text-base"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-4 sm:py-6 pb-24 sm:pb-8">
+
+        <!-- PAGE 1: HOMEPAGE (PERSON LIST) -->
+        <section id="homepageView" class="space-y-4 sm:space-y-6 fade-in">
+            <!-- Search & Quick Action Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white">People & Academies</h2>
+                    <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Track debts, reimbursements, and settlements</p>
+                </div>
+                <button onclick="openCreatePersonModal()" class="hidden sm:inline-flex items-center justify-center space-x-2 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-brand-500/20 transition-all text-sm">
+                    <i class="fa-solid fa-user-plus text-xs"></i>
+                    <span>Add Person</span>
+                </button>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" id="personSearchInput" oninput="filterPersonsList()" placeholder="Search names..." class="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all text-sm shadow-sm">
+            </div>
+
+            <!-- Persons List -->
+            <div id="personsList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Empty State for Persons -->
+            <div id="noPersonsState" class="hidden text-center py-12 px-4 bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+                <div class="w-14 h-14 bg-slate-100 dark:bg-slate-700/50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fa-solid fa-users text-xl"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">No people listed yet</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">Add a teacher, student, or academy to start tracking reimbursements.</p>
+                <button onclick="openCreatePersonModal()" class="mt-4 inline-flex items-center space-x-2 text-brand-600 dark:text-brand-400 font-semibold text-xs bg-brand-50 dark:bg-brand-950/50 px-4 py-2 rounded-xl">
+                    <span>+ Add First Person</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- PAGE 2: PERSON BOOK PAGE (TRANSACTION BOOK) -->
+        <section id="personBookView" class="hidden space-y-4 fade-in">
+            <!-- Navigation & Actions Bar -->
+            <div class="flex items-center justify-between">
+                <button onclick="navigateToHome()" class="inline-flex items-center space-x-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-sm active:scale-95 transition-all">
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                    <span>All People</span>
+                </button>
+
+                <div class="flex items-center space-x-2">
+                    <button onclick="exportPersonCSV()" title="Export Records" class="p-2 text-xs font-semibold bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-sm hover:bg-slate-50 transition-all">
+                        <i class="fa-solid fa-file-csv text-sm"></i>
+                    </button>
+                    <button onclick="openEditPersonModal()" title="Options" class="p-2 text-xs font-semibold bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-sm hover:bg-slate-50 transition-all">
+                        <i class="fa-solid fa-ellipsis-vertical text-sm px-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Person Summary Card -->
+            <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-5 shadow-lg space-y-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 id="bookPersonName" class="text-xl sm:text-2xl font-bold tracking-tight">---</h2>
+                        <p class="text-[11px] text-slate-400 mt-0.5" id="bookCreatedDate">Added ---</p>
+                    </div>
+                    <span class="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-slate-700/60 text-slate-300 border border-slate-600/50">Ledger</span>
+                </div>
+
+                <!-- Financial Totals Grid -->
+                <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-700/60">
+                    <div>
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Net Owed</p>
+                        <p id="totalNetDebt" class="text-base sm:text-lg font-extrabold text-white mt-0.5">$0.00</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">Pending</p>
+                        <p id="totalPendingAmount" class="text-base sm:text-lg font-extrabold text-amber-400 mt-0.5">$0.00</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Settled</p>
+                        <p id="totalSettledAmount" class="text-base sm:text-lg font-extrabold text-emerald-400 mt-0.5">$0.00</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="flex items-center justify-between bg-slate-200/60 dark:bg-slate-800/80 p-1 rounded-2xl">
+                <div class="flex space-x-1 w-full">
+                    <button onclick="setFilter('all')" id="filterAllBtn" class="flex-1 py-1.5 text-xs font-bold rounded-xl transition-all bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm">All</button>
+                    <button onclick="setFilter('pending')" id="filterPendingBtn" class="flex-1 py-1.5 text-xs font-bold rounded-xl text-slate-600 dark:text-slate-400 transition-all">Pending</button>
+                    <button onclick="setFilter('settled')" id="filterSettledBtn" class="flex-1 py-1.5 text-xs font-bold rounded-xl text-slate-600 dark:text-slate-400 transition-all">Settled</button>
+                </div>
+            </div>
+
+            <!-- Transactions List -->
+            <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm overflow-hidden">
+                <div id="expensesContainer" class="divide-y divide-slate-100 dark:divide-slate-700/60">
+                    <!-- Dynamic List of Transactions -->
+                </div>
+
+                <!-- Empty Expenses State -->
+                <div id="noExpensesState" class="hidden text-center py-10 px-4">
+                    <i class="fa-solid fa-receipt text-2xl text-slate-300 dark:text-slate-600 mb-1.5"></i>
+                    <p class="text-xs font-bold text-slate-700 dark:text-slate-300">No transactions recorded</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Tap "+ Add Entry" below to record a new debt or repayment.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- STICKY MOBILE BOTTOM BAR -->
+    <div class="fixed bottom-0 left-0 right-0 z-20 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-700/80 p-3 flex justify-center sm:hidden">
+        <button id="mobilePrimaryBtn" onclick="openCreatePersonModal()" class="w-full max-w-sm py-3 bg-brand-600 active:scale-95 text-white font-bold text-sm rounded-2xl shadow-lg shadow-brand-500/30 flex items-center justify-center space-x-2 transition-all">
+            <i class="fa-solid fa-plus text-xs"></i>
+            <span id="mobilePrimaryBtnText">Create New Person</span>
+        </button>
+    </div>
+
+    <!-- MODAL 1: Create New Person -->
+    <div id="createPersonModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop fade-in">
+        <div class="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 border-t sm:border border-slate-200 dark:border-slate-700 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Create New Person / Ledger</h3>
+                <button onclick="closeModal('createPersonModal')" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form onsubmit="handleCreatePerson(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Name / Academy Name</label>
+                    <input type="text" id="newPersonName" required placeholder="e.g. John Smith or Science Dept" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm">
+                </div>
+                <div class="flex space-x-2 pt-2">
+                    <button type="button" onclick="closeModal('createPersonModal')" class="flex-1 py-3 text-xs font-bold rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 text-xs font-bold rounded-2xl bg-brand-600 text-white shadow-md">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Add New Expense / Repayment -->
+    <div id="addExpenseModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop fade-in">
+        <div class="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 border-t sm:border border-slate-200 dark:border-slate-700 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Add Entry</h3>
+                <button onclick="closeModal('addExpenseModal')" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form onsubmit="handleAddExpense(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Type</label>
+                    <select id="expenseStatus" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm font-medium">
+                        <option value="expense">Money Owed (Expense)</option>
+                        <option value="repayment">Money Paid Back (Repayment)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Amount ($)</label>
+                    <input type="number" step="0.01" min="0.01" id="expenseAmount" required placeholder="0.00" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Purpose / Description</label>
+                    <input type="text" id="expensePurpose" required placeholder="e.g. Lab supplies, Taxi fare" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm">
+                </div>
+                <div class="flex space-x-2 pt-2">
+                    <button type="button" onclick="closeModal('addExpenseModal')" class="flex-1 py-3 text-xs font-bold rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 text-xs font-bold rounded-2xl bg-brand-600 text-white shadow-md">Save Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Edit Person Name / Delete Person -->
+    <div id="editPersonModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop fade-in">
+        <div class="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 border-t sm:border border-slate-200 dark:border-slate-700 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Person Options</h3>
+                <button onclick="closeModal('editPersonModal')" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form onsubmit="handleEditPerson(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Rename</label>
+                    <input type="text" id="editPersonName" required class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm">
+                </div>
+                <div class="flex flex-col space-y-2 pt-2">
+                    <button type="submit" class="w-full py-3 text-xs font-bold rounded-2xl bg-brand-600 text-white shadow-md">Update Name</button>
+                    <button type="button" onclick="confirmDeletePerson()" class="w-full py-3 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-2xl border border-rose-200 dark:border-rose-900/50">Delete Entire Person Ledger</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-16 sm:bottom-5 right-4 left-4 sm:left-auto sm:right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- Application Script -->
+    <script>
+        const DEFAULT_SUPABASE_URL = "https://lapezkysfbfkppfyzuhs.supabase.co";
+        const DEFAULT_SUPABASE_KEY = "sb_publishable_vX1uuLCGAPfsrgDO5Cwwmw_okUMaQsl";
+
+        let supabaseClient = null;
+        let isOnlineMode = false;
+        let persons = [];
+        let currentPersonId = null;
+        let currentExpenses = [];
+        let activeFilter = 'all';
+
+        let localData = JSON.parse(localStorage.getItem('academy_tracker_local')) || {
+            persons: [
+                { id: '1', name: 'John Smith', date_created: new Date().toISOString() },
+                { id: '2', name: 'Jane Doe', date_created: new Date().toISOString() }
+            ],
+            expenses: [
+                { id: '101', person_id: '1', amount: 150.00, purpose: 'Lab Manuals', status: 'expense', date_created: new Date().toISOString() },
+                { id: '102', person_id: '2', amount: 75.50, purpose: 'Science Props', status: 'expense', date_created: new Date().toISOString() }
+            ]
+        };
+
+        window.onload = function() {
+            initDarkMode();
+            initSupabaseSilent();
+            loadPersons();
+        };
+
+        function initSupabaseSilent() {
+            try {
+                if (window.supabase) {
+                    supabaseClient = window.supabase.createClient(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_KEY);
+                    isOnlineMode = true;
+                }
+            } catch (err) {
+                isOnlineMode = false;
+            }
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('academy_tracker_local', JSON.stringify(localData));
+        }
+
+        function initDarkMode() {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                updateThemeIcon(true);
+            } else {
+                document.documentElement.classList.remove('dark');
+                updateThemeIcon(false);
+            }
+        }
+
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.theme = isDark ? 'dark' : 'light';
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const icon = document.getElementById('themeIcon');
+            icon.className = isDark ? 'fa-solid fa-sun text-base text-amber-400' : 'fa-solid fa-moon text-base text-slate-600';
+        }
+
+        function navigateToHome() {
+            currentPersonId = null;
+            document.getElementById('personBookView').classList.add('hidden');
+            document.getElementById('homepageView').classList.remove('hidden');
+            
+            // Update Mobile Bottom Bar Button
+            document.getElementById('mobilePrimaryBtnText').innerText = "Create New Person";
+            document.getElementById('mobilePrimaryBtn').onclick = openCreatePersonModal;
+
+            loadPersons();
+        }
+
+        function openPersonBook(personId) {
+            currentPersonId = personId;
+            document.getElementById('homepageView').classList.add('hidden');
+            document.getElementById('personBookView').classList.remove('hidden');
+            activeFilter = 'all';
+            updateFilterTabsUI();
+
+            // Update Mobile Bottom Bar Button
+            document.getElementById('mobilePrimaryBtnText').innerText = "Add New Entry";
+            document.getElementById('mobilePrimaryBtn').onclick = openAddExpenseModal;
+
+            loadPersonDetails();
+            loadExpenses();
+        }
+
+        async function loadPersons() {
+            if (isOnlineMode) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('persons')
+                        .select('*')
+                        .order('date_created', { ascending: false });
+                    if (!error && data) persons = data;
+                    else persons = localData.persons;
+                } catch (err) {
+                    persons = localData.persons;
+                }
+            } else {
+                persons = localData.persons;
+            }
+            await renderPersonsList();
+        }
+
+        async function renderPersonsList() {
+            const listEl = document.getElementById('personsList');
+            const noPersonsEl = document.getElementById('noPersonsState');
+            const searchQuery = (document.getElementById('personSearchInput').value || '').toLowerCase();
+
+            listEl.innerHTML = '';
+            const filteredPersons = persons.filter(p => p.name.toLowerCase().includes(searchQuery));
+
+            if (filteredPersons.length === 0) {
+                noPersonsEl.classList.remove('hidden');
+                return;
+            } else {
+                noPersonsEl.classList.add('hidden');
+            }
+
+            for (const person of filteredPersons) {
+                const balance = await calculatePersonBalance(person.id);
+                
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-4 hover:border-brand-500 transition-all cursor-pointer flex justify-between items-center active:scale-[0.98]";
+                card.onclick = () => openPersonBook(person.id);
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-brand-50 dark:bg-slate-700 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-base">
+                            ${person.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 dark:text-white text-sm leading-tight">${escapeHtml(person.name)}</h3>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Tap to open ledger</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm sm:text-base font-extrabold ${balance > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">
+                            $${balance.toFixed(2)}
+                        </span>
+                        <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Net Owed</p>
+                    </div>
+                `;
+                listEl.appendChild(card);
+            }
+        }
+
+        function filterPersonsList() {
+            renderPersonsList();
+        }
+
+        async function calculatePersonBalance(personId) {
+            let pExpenses = [];
+            if (isOnlineMode) {
+                try {
+                    const { data } = await supabaseClient
+                        .from('expenses')
+                        .select('amount, status')
+                        .eq('person_id', personId)
+                        .neq('status', 'deleted');
+                    pExpenses = data || [];
+                } catch (e) {
+                    pExpenses = localData.expenses.filter(e => e.person_id === personId && e.status !== 'deleted');
+                }
+            } else {
+                pExpenses = localData.expenses.filter(e => e.person_id === personId && e.status !== 'deleted');
+            }
+
+            return pExpenses.reduce((acc, curr) => {
+                if (curr.status === 'expense') return acc + Number(curr.amount);
+                if (curr.status === 'repayment') return acc - Number(curr.amount);
+                return acc;
+            }, 0);
+        }
+
+        async function loadPersonDetails() {
+            const person = persons.find(p => p.id === currentPersonId);
+            if (!person) return;
+
+            document.getElementById('bookPersonName').innerText = person.name;
+            const createdDate = new Date(person.date_created).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            document.getElementById('bookCreatedDate').innerText = `Created ${createdDate}`;
+        }
+
+        async function loadExpenses() {
+            if (isOnlineMode) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('expenses')
+                        .select('*')
+                        .eq('person_id', currentPersonId)
+                        .neq('status', 'deleted')
+                        .order('date_created', { ascending: false });
+
+                    if (!error && data) currentExpenses = data;
+                    else currentExpenses = localData.expenses.filter(e => e.person_id === currentPersonId && e.status !== 'deleted');
+                } catch (err) {
+                    currentExpenses = localData.expenses.filter(e => e.person_id === currentPersonId && e.status !== 'deleted');
+                }
+            } else {
+                currentExpenses = localData.expenses.filter(e => e.person_id === currentPersonId && e.status !== 'deleted');
+            }
+
+            renderExpensesList();
+            updatePersonSummaryTotals();
+        }
+
+        function updatePersonSummaryTotals() {
+            let pending = 0;
+            let settled = 0;
+            let netDebt = 0;
+
+            currentExpenses.forEach(exp => {
+                const amt = Number(exp.amount);
+                if (exp.status === 'expense') {
+                    pending += amt;
+                    netDebt += amt;
+                } else if (exp.status === 'repayment') {
+                    netDebt -= amt;
+                    pending -= amt;
+                } else if (exp.status === 'settled') {
+                    settled += amt;
+                }
+            });
+
+            document.getElementById('totalNetDebt').innerText = `$${Math.max(0, netDebt).toFixed(2)}`;
+            document.getElementById('totalPendingAmount').innerText = `$${Math.max(0, pending).toFixed(2)}`;
+            document.getElementById('totalSettledAmount').innerText = `$${settled.toFixed(2)}`;
+        }
+
+        function renderExpensesList() {
+            const container = document.getElementById('expensesContainer');
+            const noExpenses = document.getElementById('noExpensesState');
+            container.innerHTML = '';
+
+            let filtered = currentExpenses.filter(e => {
+                if (activeFilter === 'pending') return e.status === 'expense' || e.status === 'repayment';
+                if (activeFilter === 'settled') return e.status === 'settled';
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                noExpenses.classList.remove('hidden');
+                return;
+            } else {
+                noExpenses.classList.add('hidden');
+            }
+
+            filtered.forEach(exp => {
+                const row = document.createElement('div');
+                row.className = "p-3.5 sm:p-4 flex items-center justify-between gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors";
+
+                const isSettled = exp.status === 'settled';
+                const isRepayment = exp.status === 'repayment';
+
+                let statusText = "Pending";
+                let statusBg = "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300";
+                if (isSettled) {
+                    statusText = "Settled";
+                    statusBg = "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300";
+                } else if (isRepayment) {
+                    statusText = "Repaid";
+                    statusBg = "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300";
+                }
+
+                const dateStr = new Date(exp.date_created).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+                row.innerHTML = `
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <div class="p-2 rounded-xl shrink-0 ${isSettled ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40' : (isRepayment ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40')}">
+                            <i class="fa-solid ${isSettled ? 'fa-check-circle' : (isRepayment ? 'fa-arrow-down-left' : 'fa-receipt')} text-sm"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center space-x-1.5">
+                                <h4 class="font-bold text-slate-800 dark:text-slate-100 text-xs sm:text-sm truncate ${isSettled ? 'line-through text-slate-400 dark:text-slate-500' : ''}">
+                                    ${escapeHtml(exp.purpose)}
+                                </h4>
+                                <span class="px-2 py-0.5 text-[9px] font-bold rounded-full ${statusBg}">${statusText}</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-0.5">${dateStr}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-2 shrink-0">
+                        <span class="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
+                            $${Number(exp.amount).toFixed(2)}
+                        </span>
+                        
+                        <div class="flex items-center space-x-1">
+                            ${!isSettled ? `
+                                <button onclick="settleExpense('${exp.id}')" title="Settle" class="px-2.5 py-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 rounded-lg border border-emerald-200 dark:border-emerald-800/50">
+                                    Settle
+                                </button>
+                            ` : ''}
+                            <button onclick="deleteExpense('${exp.id}')" title="Delete" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(row);
+            });
+        }
+
+        async function handleCreatePerson(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('newPersonName');
+            const name = nameInput.value.trim();
+            if (!name) return;
+
+            if (isOnlineMode) {
+                try {
+                    await supabaseClient.from('persons').insert([{ name }]);
+                    showToast("Person added", "success");
+                } catch (err) {
+                    showToast("Saved locally", "info");
+                }
+            }
+            
+            const newP = { id: Date.now().toString(), name, date_created: new Date().toISOString() };
+            localData.persons.unshift(newP);
+            saveLocalData();
+
+            nameInput.value = '';
+            closeModal('createPersonModal');
+            loadPersons();
+        }
+
+        async function handleAddExpense(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const purpose = document.getElementById('expensePurpose').value.trim();
+            const status = document.getElementById('expenseStatus').value;
+
+            if (!amount || !purpose || !currentPersonId) return;
+
+            const payload = {
+                person_id: currentPersonId,
+                amount: amount,
+                purpose: purpose,
+                status: status,
+                date_created: new Date().toISOString()
+            };
+
+            if (isOnlineMode) {
+                try {
+                    await supabaseClient.from('expenses').insert([payload]);
+                } catch (err) {}
+            }
+            
+            payload.id = Date.now().toString();
+            localData.expenses.unshift(payload);
+            saveLocalData();
+            showToast("Entry added", "success");
+
+            document.getElementById('expenseAmount').value = '';
+            document.getElementById('expensePurpose').value = '';
+            closeModal('addExpenseModal');
+            loadExpenses();
+        }
+
+        async function settleExpense(expenseId) {
+            const now = new Date().toISOString();
+            if (isOnlineMode) {
+                try {
+                    await supabaseClient.from('expenses').update({ status: 'settled', date_settled: now }).eq('id', expenseId);
+                } catch (err) {}
+            }
+            
+            const exp = localData.expenses.find(e => e.id === expenseId);
+            if (exp) {
+                exp.status = 'settled';
+                exp.date_settled = now;
+                saveLocalData();
+                showToast("Marked settled", "success");
+            }
+            loadExpenses();
+        }
+
+        async function deleteExpense(expenseId) {
+            if (isOnlineMode) {
+                try {
+                    await supabaseClient.from('expenses').update({ status: 'deleted' }).eq('id', expenseId);
+                } catch (err) {}
+            }
+            
+            const exp = localData.expenses.find(e => e.id === expenseId);
+            if (exp) {
+                exp.status = 'deleted';
+                saveLocalData();
+                showToast("Entry deleted", "info");
+            }
+            loadExpenses();
+        }
+
+        async function handleEditPerson(e) {
+            e.preventDefault();
+            const newName = document.getElementById('editPersonName').value.trim();
+            if (!newName || !currentPersonId) return;
+
+            if (isOnlineMode) {
+                try {
+                    await supabaseClient.from('persons').update({ name: newName }).eq('id', currentPersonId);
+                } catch (err) {}
+            }
+            
+            const p = localData.persons.find(x => x.id === currentPersonId);
+            if (p) {
+                p.name = newName;
+                saveLocalData();
+                showToast("Renamed", "success");
+            }
+
+            closeModal('editPersonModal');
+            loadPersonDetails();
+        }
+
+        async function confirmDeletePerson() {
+            if (isOnlineMode) {
+                try {
+                    await supabaseClient.from('persons').delete().eq('id', currentPersonId);
+                } catch (err) {}
+            }
+            
+            localData.persons = localData.persons.filter(p => p.id !== currentPersonId);
+            localData.expenses = localData.expenses.filter(e => e.person_id !== currentPersonId);
+            saveLocalData();
+            showToast("Person removed", "info");
+
+            closeModal('editPersonModal');
+            navigateToHome();
+        }
+
+        function setFilter(type) {
+            activeFilter = type;
+            updateFilterTabsUI();
+            renderExpensesList();
+        }
+
+        function updateFilterTabsUI() {
+            const btnAll = document.getElementById('filterAllBtn');
+            const btnPending = document.getElementById('filterPendingBtn');
+            const btnSettled = document.getElementById('filterSettledBtn');
+
+            [btnAll, btnPending, btnSettled].forEach(b => {
+                b.className = "flex-1 py-1.5 text-xs font-bold rounded-xl text-slate-600 dark:text-slate-400 transition-all";
+            });
+
+            const activeClass = "flex-1 py-1.5 text-xs font-bold rounded-xl transition-all bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm";
+            if (activeFilter === 'all') btnAll.className = activeClass;
+            if (activeFilter === 'pending') btnPending.className = activeClass;
+            if (activeFilter === 'settled') btnSettled.className = activeClass;
+        }
+
+        function exportPersonCSV() {
+            const person = persons.find(p => p.id === currentPersonId);
+            if (!person || !currentExpenses.length) {
+                showToast("No data to export", "info");
+                return;
+            }
+
+            let csv = "Purpose,Amount,Status,Created Date,Settled Date\n";
+            currentExpenses.forEach(exp => {
+                csv += `"${exp.purpose.replace(/"/g, '""')}",${exp.amount},${exp.status},"${exp.date_created}","${exp.date_settled || ''}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `${person.name.replace(/\s+/g, '_')}_expenses.csv`);
+            a.click();
+            showToast("Exported CSV", "success");
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function openCreatePersonModal() { openModal('createPersonModal'); }
+        function openAddExpenseModal() { openModal('addExpenseModal'); }
+        function openEditPersonModal() {
+            const person = persons.find(p => p.id === currentPersonId);
+            if (person) {
+                document.getElementById('editPersonName').value = person.name;
+                openModal('editPersonModal');
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+
+            let bgClass = "bg-slate-900 text-white";
+            if (type === 'success') bgClass = "bg-slate-900 text-white border border-emerald-500/40";
+
+            toast.className = `pointer-events-auto px-4 py-3 rounded-2xl shadow-xl flex items-center justify-center space-x-2 text-xs font-semibold ${bgClass} fade-in transition-all duration-300`;
+            toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>
